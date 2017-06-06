@@ -49,7 +49,6 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	is_initialized = true;
 }
 
-
 void ParticleFilter::prediction(double delta_t, double std_pos[], double velocity, double yaw_rate) {
 	// TODO: Add measurements to each particle and add random Gaussian noise.
 	// NOTE: When adding noise you may find std::normal_distribution and std::default_random_engine useful.
@@ -121,7 +120,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
 	for (int i = 0; i < num_particles; i++) {
 
-		// transform observations
+		// transform observations to map coordinate system
 		vector<LandmarkObs> transform_observation;
 
 		double x_i = particles[i].x;
@@ -135,7 +134,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 			transform_observation.push_back(O);
 		}
 
-		// transform predict
+		// transform predict to map coordinate system
 		vector<LandmarkObs> transform_predict;
 		for (int j = 0; j < map_landmarks.landmark_list.size(); j++) {
 			double distance = dist(x_i, y_i,
@@ -174,17 +173,19 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 				}
 			}
 
-			if (min_idx != -1) {
-				double x_diff = transform_predict[j].x - transform_observation[min_idx].x;
-				double y_diff = transform_predict[j].y - transform_observation[min_idx].y;
-
-				double num = exp(-0.5 * ((x_diff * x_diff/x_var) + (y_diff* y_diff/y_var)));
-				double den = 2 * M_PI * xy_cov;
-
-				weight *= (num / den);
+			if (min_idx == -1) {
+				continue;
 			}
+
+			// calculate multi varirate Gaussian Distribution
+			double x_diff = transform_predict[j].x - transform_observation[min_idx].x;
+			double y_diff = transform_predict[j].y - transform_observation[min_idx].y;
+			double multi_gd = exp(-0.5 * ((x_diff * x_diff/x_var) + (y_diff* y_diff/y_var))) / (2 * M_PI * xy_cov);
+
+			weight *= multi_gd;
 		}
 
+		// Update the weights
 		weights[i] = weight;
 		particles[i].weight = weight;
 	}
